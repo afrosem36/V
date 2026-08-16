@@ -21,7 +21,7 @@ vercel            # follow the prompts, links this folder to a Vercel project
 vercel --prod     # deploy to your production URL
 ```
 
-No environment variables or database to configure — it's a static/client app.
+No environment variables or database to configure — it's a static/client app. If you want AI coaching features (session feedback, exercise explanations, pain-flag alternatives), set a `GROQ_API_KEY` in your Vercel project's environment variables — see `.env.local` locally for the same setup. Everything else works without it.
 
 ## What's here
 
