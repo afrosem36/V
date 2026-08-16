@@ -10,6 +10,7 @@ import { acquireWakeLock, releaseWakeLock } from "@/lib/pwa/wake-lock";
 import { ExercisePanel } from "@/components/workout/ExercisePanel";
 import { RestTimerBar } from "@/components/workout/RestTimerBar";
 import { WarmupTip } from "@/components/workout/WarmupTip";
+import { GymClock } from "@/components/workout/GymClock";
 
 export default function ActiveWorkoutPage() {
   const router = useRouter();
@@ -91,13 +92,16 @@ export default function ActiveWorkoutPage() {
             Exercise {currentIndex + 1} of {data.entries.length}
           </div>
         </div>
-        <button
-          onClick={handleEndEarly}
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-2 border border-border active:brightness-90"
-          aria-label="End workout"
-        >
-          <X size={18} />
-        </button>
+        <div className="flex items-center gap-3">
+          <GymClock startedAt={data.session.startedAt} />
+          <button
+            onClick={handleEndEarly}
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-2 border border-border active:brightness-90"
+            aria-label="End workout"
+          >
+            <X size={18} />
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 px-4 py-4 pb-32">

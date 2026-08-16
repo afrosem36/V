@@ -29,13 +29,38 @@ export function averageSteps(entries: DailySteps[]): number {
 
 // ---------------- Body weight ----------------
 
-export async function upsertBodyWeight(date: string, weightKg: number, notes: string | null): Promise<void> {
+export async function upsertBodyWeight(
+  date: string,
+  weightKg: number,
+  notes: string | null,
+  bodyFatPercent?: number | null
+): Promise<void> {
   const existing = await db.bodyWeights.where("date").equals(date).first();
   if (existing) {
-    await db.bodyWeights.update(existing.id, { weightKg, notes });
+    const patch: Partial<BodyWeight> = { weightKg, notes };
+    if (bodyFatPercent !== undefined) patch.bodyFatPercent = bodyFatPercent;
+    await db.bodyWeights.update(existing.id, patch);
   } else {
-    await db.bodyWeights.add({ id: newId("bw"), date, weightKg, notes, createdAt: new Date().toISOString() });
+    await db.bodyWeights.add({
+      id: newId("bw"),
+      date,
+      weightKg,
+      notes,
+      bodyFatPercent: bodyFatPercent ?? null,
+      createdAt: new Date().toISOString(),
+    });
   }
+}
+
+/** Earliest-recorded body-fat % reading, used as the baseline for "fat lost since you started tracking." */
+export async function getFirstBodyFatEntry(): Promise<BodyWeight | undefined> {
+  const all = await db.bodyWeights.orderBy("date").toArray();
+  return all.find((e) => e.bodyFatPercent != null);
+}
+
+export async function getLatestBodyFatEntry(): Promise<BodyWeight | undefined> {
+  const all = await db.bodyWeights.orderBy("date").reverse().toArray();
+  return all.find((e) => e.bodyFatPercent != null);
 }
 
 export async function getBodyWeightsInRange(startDate: string, endDate: string): Promise<BodyWeight[]> {

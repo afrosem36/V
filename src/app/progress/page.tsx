@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useLiveQuery } from "dexie-react-hooks";
-import { ChevronRight, Ruler, Camera } from "lucide-react";
+import { ChevronRight, Ruler, Camera, HeartPulse } from "lucide-react";
 import { Card, CardLabel } from "@/components/ui/Card";
 import { WeeklyVolumeChart } from "@/components/charts/WeeklyVolumeChart";
 import { ExerciseTrendChart } from "@/components/charts/ExerciseTrendChart";
@@ -107,6 +107,15 @@ export default function ProgressPage() {
       </Card>
 
       <div className="flex flex-col gap-2">
+        <Link href="/progress/body">
+          <Card className="flex items-center justify-between border-accent/30 active:brightness-95">
+            <div className="flex items-center gap-2">
+              <HeartPulse size={16} className="text-accent" />
+              <span className="font-medium">Body Metrics Dashboard</span>
+            </div>
+            <ChevronRight size={16} className="text-text-faint" />
+          </Card>
+        </Link>
         <Link href="/progress/measurements">
           <Card className="flex items-center justify-between active:brightness-95">
             <div className="flex items-center gap-2">

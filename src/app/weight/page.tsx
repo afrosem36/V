@@ -39,19 +39,21 @@ export default function WeightPage() {
   const data = useWeightData();
   const [editDate, setEditDate] = useState<string | null>(null);
   const [editValue, setEditValue] = useState(0);
+  const [editBodyFat, setEditBodyFat] = useState(0);
 
   if (!data) return <div className="p-5 pt-[calc(1.5rem+var(--safe-top))] text-sm text-text-muted">Loading…</div>;
 
   const { unit } = data;
 
-  function openEdit(date: string, weightKg: number | null) {
+  function openEdit(date: string, weightKg: number | null, bodyFatPercent?: number | null) {
     setEditDate(date);
     setEditValue(weightKg != null ? kgToDisplay(weightKg, unit) : 70);
+    setEditBodyFat(bodyFatPercent ?? 0);
   }
 
   async function saveEdit() {
     if (!editDate) return;
-    await upsertBodyWeight(editDate, displayToKg(editValue, unit), null);
+    await upsertBodyWeight(editDate, displayToKg(editValue, unit), null, editBodyFat > 0 ? editBodyFat : null);
     setEditDate(null);
   }
 
@@ -110,12 +112,13 @@ export default function WeightPage() {
           {data.recent.map((entry) => (
             <button
               key={entry.date}
-              onClick={() => openEdit(entry.date, entry.weightKg)}
+              onClick={() => openEdit(entry.date, entry.weightKg, entry.bodyFatPercent)}
               className="flex items-center justify-between rounded-xl bg-surface px-4 py-2.5 text-sm active:brightness-95"
             >
               <span className="text-text-muted">{formatShortDate(entry.date)}</span>
               <span className="flex items-center gap-2 font-medium">
                 {kgToDisplay(entry.weightKg, unit)} {unit}
+                {entry.bodyFatPercent != null && <span className="text-text-muted">· {entry.bodyFatPercent}% BF</span>}
                 <Pencil size={13} className="text-text-faint" />
               </span>
             </button>
@@ -125,7 +128,7 @@ export default function WeightPage() {
       </div>
 
       <button
-        onClick={() => openEdit(todayStr(), data.latest?.weightKg ?? null)}
+        onClick={() => openEdit(todayStr(), data.latest?.weightKg ?? null, data.latest?.bodyFatPercent)}
         className="text-sm font-medium text-accent"
       >
         + Add / edit an entry
@@ -133,7 +136,10 @@ export default function WeightPage() {
 
       <BottomSheet open={editDate != null} onClose={() => setEditDate(null)} title={editDate ? formatShortDate(editDate) : ""}>
         <div className="pb-4">
+          <div className="mb-1 text-xs text-text-muted">Weight</div>
           <NumberStepper value={editValue} onChange={setEditValue} step={0.1} decimals={1} suffix={unit} />
+          <div className="mt-3 mb-1 text-xs text-text-muted">Body fat % (optional, only if your scale reads it)</div>
+          <NumberStepper value={editBodyFat} onChange={setEditBodyFat} step={0.5} decimals={1} suffix="%" size="md" />
           <Button fullWidth size="lg" className="mt-4" onClick={saveEdit}>
             Save
           </Button>

@@ -39,6 +39,32 @@ export async function updateWorkoutDayExercise(id: string, patch: Partial<Omit<W
   await db.workoutDayExercises.update(id, patch);
 }
 
+export async function addWorkoutDayExercise(workoutDayId: string, exerciseId: string): Promise<void> {
+  const [existing, exercise] = await Promise.all([getWorkoutDayExercises(workoutDayId), db.exercises.get(exerciseId)]);
+  if (!exercise) return;
+  const nextOrder = existing.length > 0 ? Math.max(...existing.map((e) => e.order)) + 1 : 0;
+  const row: WorkoutDayExercise = {
+    id: newId("wde"),
+    workoutDayId,
+    exerciseId,
+    order: nextOrder,
+    priority: 5, // new additions default to "optional / first cut" until the user re-prioritizes
+    targetSets: exercise.recommendedSets,
+    repRangeMin: exercise.repRangeMin,
+    repRangeMax: exercise.repRangeMax,
+    restSeconds: exercise.restSeconds,
+  };
+  await db.workoutDayExercises.add(row);
+}
+
+export async function removeWorkoutDayExercise(id: string): Promise<void> {
+  await db.workoutDayExercises.delete(id);
+}
+
+export async function setDayRestStatus(dayId: string, isRestDay: boolean): Promise<void> {
+  await db.workoutDays.update(dayId, { isRestDay });
+}
+
 // ---------------- Sessions ----------------
 
 export async function getActiveSession(): Promise<WorkoutSession | undefined> {

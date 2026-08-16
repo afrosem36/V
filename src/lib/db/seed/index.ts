@@ -35,6 +35,8 @@ function defaultSettings(now: string): AppSettings {
     theme: "dark",
     lastActiveWorkoutDate: null,
     libraryVersion: LIBRARY_VERSION,
+    heightCm: null,
+    goalWeightKg: null,
   };
 }
 

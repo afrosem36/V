@@ -5,6 +5,10 @@ export async function getExercisesByPrimaryMuscle(muscle: MuscleGroupKey): Promi
   return db.exercises.where("primaryMuscle").equals(muscle).sortBy("name");
 }
 
+export async function getAllExercises(): Promise<Exercise[]> {
+  return db.exercises.orderBy("name").toArray();
+}
+
 export async function getAvailableEquipmentKeys(): Promise<Set<EquipmentKey>> {
   const rows = await db.userEquipment.filter((e) => e.available).toArray();
   return new Set(rows.map((r) => r.equipmentKey));

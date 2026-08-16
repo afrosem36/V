@@ -1,6 +1,7 @@
 import { db } from "@/lib/db/db";
 import { getCompletedSessions } from "@/lib/db/repo/workouts";
 import { totalLoadForSet, displayWeightForSet } from "@/lib/engine/weight-math";
+import { estimateCaloriesBurned } from "@/lib/engine/body-metrics";
 import { dateStr } from "@/lib/utils/date";
 import { startOfWeek, addWeeks, isWithinInterval, endOfWeek, format } from "date-fns";
 
@@ -79,4 +80,34 @@ export async function getWorkoutCounts(): Promise<{ thisWeek: number; thisMonth:
     if (d >= monthStart) thisMonth++;
   }
   return { thisWeek, thisMonth };
+}
+
+export interface WeeklyGymStats {
+  sessionCount: number;
+  totalMinutes: number;
+  avgMinutesPerSession: number;
+  estimatedCalories: number;
+}
+
+/** "Time at the gym" + a rough calorie estimate for the current calendar week (Mon-Sun). */
+export async function getWeeklyGymStats(bodyWeightKg: number | null): Promise<WeeklyGymStats> {
+  const sessions = await getCompletedSessions(500);
+  const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
+  const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
+
+  let totalMinutes = 0;
+  let sessionCount = 0;
+  for (const s of sessions) {
+    const started = new Date(s.startedAt);
+    if (!isWithinInterval(started, { start: weekStart, end: weekEnd }) || !s.completedAt) continue;
+    sessionCount++;
+    totalMinutes += Math.max(0, Math.round((new Date(s.completedAt).getTime() - started.getTime()) / 60000));
+  }
+
+  return {
+    sessionCount,
+    totalMinutes,
+    avgMinutesPerSession: sessionCount > 0 ? Math.round(totalMinutes / sessionCount) : 0,
+    estimatedCalories: bodyWeightKg != null ? estimateCaloriesBurned(totalMinutes, bodyWeightKg) : 0,
+  };
 }

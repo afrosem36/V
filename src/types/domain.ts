@@ -189,6 +189,8 @@ export interface BodyWeight {
   id: Id;
   date: string; // yyyy-mm-dd
   weightKg: number;
+  /** Optional — only if the user's scale/caliper gives a reading. Used to estimate fat mass trend. */
+  bodyFatPercent: number | null;
   notes: string | null;
   createdAt: string;
 }
@@ -245,4 +247,6 @@ export interface AppSettings {
   lastActiveWorkoutDate: string | null;
   /** Undefined/1 = original seed. Bumped whenever exercises/program reference data is corrected post-launch. */
   libraryVersion?: number;
+  heightCm: number | null;
+  goalWeightKg: number | null;
 }

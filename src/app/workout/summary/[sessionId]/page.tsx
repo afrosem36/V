@@ -10,7 +10,9 @@ import { CompletedSetRow } from "@/components/workout/SetRow";
 import { getSession, getSessionSets, getPreviousCompletedSessionForDay, updateSessionNotes } from "@/lib/db/repo/workouts";
 import { getExercisesByIds } from "@/lib/db/repo/exercises";
 import { getPRsForSession } from "@/lib/db/repo/records";
+import { getLatestBodyWeight } from "@/lib/db/repo/body";
 import { totalLoadForSet } from "@/lib/engine/weight-math";
+import { estimateCaloriesBurned } from "@/lib/engine/body-metrics";
 import { formatDuration, formatPR } from "@/lib/utils/format";
 import { getSettings } from "@/lib/db/repo/settings";
 import { askCoach } from "@/lib/groq/askCoach";
@@ -37,12 +39,15 @@ export default function WorkoutSummaryPage({ params }: { params: Promise<{ sessi
     const durationMin =
       session.completedAt != null ? Math.round((new Date(session.completedAt).getTime() - new Date(session.startedAt).getTime()) / 60000) : 0;
 
+    const latestWeight = await getLatestBodyWeight();
+    const estimatedCalories = latestWeight ? estimateCaloriesBurned(durationMin, latestWeight.weightKg) : null;
+
     const byExercise = exercises.map((ex) => ({
       exercise: ex,
       sets: sets.filter((s) => s.exerciseId === ex.id).sort((a, b) => a.setNumber - b.setNumber),
     }));
 
-    return { session, byExercise, prs, totalVolume, previousVolume, durationMin, unit: settings.units };
+    return { session, byExercise, prs, totalVolume, previousVolume, durationMin, estimatedCalories, unit: settings.units };
   }, [sessionId]);
 
   const [aiFeedback, setAiFeedback] = useState<string | null | undefined>(undefined);
@@ -72,7 +77,7 @@ export default function WorkoutSummaryPage({ params }: { params: Promise<{ sessi
     return <div className="p-5 pt-[calc(1.5rem+var(--safe-top))] text-sm text-text-muted">Loading…</div>;
   }
 
-  const { session, byExercise, prs, totalVolume, previousVolume, durationMin, unit } = data;
+  const { session, byExercise, prs, totalVolume, previousVolume, durationMin, estimatedCalories, unit } = data;
   const totalSets = byExercise.reduce((sum, e) => sum + e.sets.length, 0);
   const volumeDeltaPct = previousVolume && previousVolume > 0 ? Math.round(((totalVolume - previousVolume) / previousVolume) * 100) : null;
 
@@ -110,7 +115,7 @@ export default function WorkoutSummaryPage({ params }: { params: Promise<{ sessi
         <div className="text-sm text-text-muted">{session.label}</div>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 gap-3">
         <Card className="text-center">
           <CardLabel>Duration</CardLabel>
           <div className="mt-1 text-lg font-bold">{formatDuration(durationMin)}</div>
@@ -122,6 +127,10 @@ export default function WorkoutSummaryPage({ params }: { params: Promise<{ sessi
         <Card className="text-center">
           <CardLabel>Volume</CardLabel>
           <div className="mt-1 text-lg font-bold">{Math.round(totalVolume)}kg</div>
+        </Card>
+        <Card className="text-center">
+          <CardLabel>Calories (est.)</CardLabel>
+          <div className="mt-1 text-lg font-bold">{estimatedCalories != null ? estimatedCalories : "—"}</div>
         </Card>
       </div>
 

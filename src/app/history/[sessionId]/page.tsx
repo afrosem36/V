@@ -9,7 +9,9 @@ import { CompletedSetRow } from "@/components/workout/SetRow";
 import { getSession, getSessionSets } from "@/lib/db/repo/workouts";
 import { getExercisesByIds } from "@/lib/db/repo/exercises";
 import { getPRsForSession } from "@/lib/db/repo/records";
+import { getLatestBodyWeight } from "@/lib/db/repo/body";
 import { totalLoadForSet } from "@/lib/engine/weight-math";
+import { estimateCaloriesBurned } from "@/lib/engine/body-metrics";
 import { formatFriendlyDate, formatTime } from "@/lib/utils/date";
 import { formatPR } from "@/lib/utils/format";
 import { getSettings } from "@/lib/db/repo/settings";
@@ -36,14 +38,17 @@ export default function HistoryDetailPage({ params }: { params: Promise<{ sessio
     const durationMin =
       session.completedAt != null ? Math.round((new Date(session.completedAt).getTime() - new Date(session.startedAt).getTime()) / 60000) : null;
 
-    return { session, byExercise, prs, totalVolume, totalSets: sets.length, durationMin, unit: settings.units };
+    const latestWeight = await getLatestBodyWeight();
+    const estimatedCalories = latestWeight && durationMin != null ? estimateCaloriesBurned(durationMin, latestWeight.weightKg) : null;
+
+    return { session, byExercise, prs, totalVolume, totalSets: sets.length, durationMin, estimatedCalories, unit: settings.units };
   }, [sessionId]);
 
   if (!data) {
     return <div className="p-5 pt-[calc(1.5rem+var(--safe-top))] text-sm text-text-muted">Loading…</div>;
   }
 
-  const { session, byExercise, prs, totalVolume, totalSets, durationMin, unit } = data;
+  const { session, byExercise, prs, totalVolume, totalSets, durationMin, estimatedCalories, unit } = data;
 
   return (
     <div className="flex flex-col gap-4 p-5 pt-[calc(1.5rem+var(--safe-top))]">
@@ -59,7 +64,7 @@ export default function HistoryDetailPage({ params }: { params: Promise<{ sessio
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 gap-3">
         <Card className="text-center">
           <CardLabel>Duration</CardLabel>
           <div className="mt-1 text-lg font-bold">{durationMin != null ? `${durationMin}m` : "—"}</div>
@@ -71,6 +76,10 @@ export default function HistoryDetailPage({ params }: { params: Promise<{ sessio
         <Card className="text-center">
           <CardLabel>Volume</CardLabel>
           <div className="mt-1 text-lg font-bold">{Math.round(totalVolume)}kg</div>
+        </Card>
+        <Card className="text-center">
+          <CardLabel>Calories (est.)</CardLabel>
+          <div className="mt-1 text-lg font-bold">{estimatedCalories != null ? estimatedCalories : "—"}</div>
         </Card>
       </div>
 

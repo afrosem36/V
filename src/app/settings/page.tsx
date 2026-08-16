@@ -15,6 +15,7 @@ import { EQUIPMENT_SEED } from "@/lib/db/seed/equipment";
 import { exportAllDataJSON, importAllDataJSON, exportWorkoutHistoryCSV, clearAllData } from "@/lib/db/backup";
 import { downloadTextFile } from "@/lib/utils/download";
 import { todayStr } from "@/lib/utils/date";
+import { kgToDisplay, displayToKg } from "@/lib/utils/format";
 
 function useSettingsData() {
   return useLiveQuery(async () => {
@@ -80,6 +81,35 @@ export default function SettingsPage() {
           />
         </div>
         <p className="mt-2 text-xs text-text-muted">Gym equipment is always logged in kg. This only affects how body weight is displayed.</p>
+      </Card>
+
+      <Card>
+        <CardLabel>Body Profile</CardLabel>
+        <div className="mt-2 flex flex-col gap-3">
+          <div>
+            <div className="mb-1 text-xs text-text-muted">Height</div>
+            <NumberStepper
+              value={settings.heightCm ?? 170}
+              onChange={(v) => updateSettings({ heightCm: Math.max(1, Math.round(v)) })}
+              step={1}
+              decimals={0}
+              suffix="cm"
+              size="md"
+            />
+          </div>
+          <div>
+            <div className="mb-1 text-xs text-text-muted">Goal weight</div>
+            <NumberStepper
+              value={settings.goalWeightKg != null ? kgToDisplay(settings.goalWeightKg, settings.units) : 70}
+              onChange={(v) => updateSettings({ goalWeightKg: displayToKg(v, settings.units) })}
+              step={0.5}
+              decimals={1}
+              suffix={settings.units}
+              size="md"
+            />
+          </div>
+        </div>
+        <p className="mt-2 text-xs text-text-muted">Used for BMI and "weight to go" on the Body Metrics dashboard.</p>
       </Card>
 
       <Card>

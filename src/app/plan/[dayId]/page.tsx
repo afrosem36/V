@@ -3,14 +3,42 @@
 import { use, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
-import { ChevronLeft, ArrowRightLeft } from "lucide-react";
+import { ChevronLeft, ArrowRightLeft, Trash2, Plus } from "lucide-react";
 import { Card, CardLabel } from "@/components/ui/Card";
 import { NumberStepper } from "@/components/ui/NumberStepper";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { Button } from "@/components/ui/Button";
-import { getWorkoutDay, getWorkoutDayExercises, updateWorkoutDayExercise, getActiveSession, startSession } from "@/lib/db/repo/workouts";
-import { getExercisesByIds, getExercisesByPrimaryMuscle } from "@/lib/db/repo/exercises";
-import type { Exercise, WorkoutDayExercise } from "@/types/domain";
+import {
+  getWorkoutDay,
+  getWorkoutDayExercises,
+  updateWorkoutDayExercise,
+  addWorkoutDayExercise,
+  removeWorkoutDayExercise,
+  setDayRestStatus,
+  getActiveSession,
+  startSession,
+} from "@/lib/db/repo/workouts";
+import { getExercisesByIds, getExercisesByPrimaryMuscle, getAllExercises } from "@/lib/db/repo/exercises";
+import type { Exercise, WorkoutDayExercise, MuscleGroupKey } from "@/types/domain";
+
+const MUSCLE_LABELS: Record<MuscleGroupKey, string> = {
+  lateral_delts: "Lateral Delts",
+  lats: "Lats",
+  rear_delts: "Rear Delts",
+  upper_chest: "Upper Chest",
+  chest: "Chest",
+  biceps: "Biceps",
+  triceps: "Triceps",
+  forearms: "Forearms",
+  quads: "Quads",
+  hamstrings: "Hamstrings",
+  glutes: "Glutes",
+  calves: "Calves",
+  core: "Core",
+  front_delts: "Front Delts",
+  traps: "Traps",
+  full_body: "Full Body / Cardio",
+};
 
 function useDayDetail(dayId: string) {
   return useLiveQuery(async () => {
@@ -32,6 +60,7 @@ export default function PlanDayPage({ params }: { params: Promise<{ dayId: strin
   const router = useRouter();
   const data = useDayDetail(dayId);
   const [swapFor, setSwapFor] = useState<{ de: WorkoutDayExercise; exercise: Exercise } | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
   const [starting, setStarting] = useState(false);
 
   if (!data) return <div className="p-5 pt-[calc(1.5rem+var(--safe-top))] text-sm text-text-muted">Loading…</div>;
@@ -47,6 +76,11 @@ export default function PlanDayPage({ params }: { params: Promise<{ dayId: strin
     router.push(`/workout/active?session=${session.id}`);
   }
 
+  async function handleRemove(id: string) {
+    if (!confirm("Remove this exercise from the day?")) return;
+    await removeWorkoutDayExercise(id);
+  }
+
   return (
     <div className="flex flex-col gap-4 p-5 pt-[calc(1.5rem+var(--safe-top))] pb-10">
       <button onClick={() => router.back()} className="flex items-center gap-1 text-sm font-medium text-text-muted">
@@ -54,10 +88,21 @@ export default function PlanDayPage({ params }: { params: Promise<{ dayId: strin
         Back
       </button>
 
-      <div className="text-2xl font-bold tracking-tight">{data.day.label}</div>
+      <div className="flex items-center justify-between">
+        <div className="text-2xl font-bold tracking-tight">{data.day.label}</div>
+        <button
+          onClick={() => setDayRestStatus(dayId, !data.day.isRestDay)}
+          className="rounded-lg bg-surface-2 border border-border px-3 py-1.5 text-xs font-medium text-text-muted active:brightness-90"
+        >
+          {data.day.isRestDay ? "Make it an active day" : "Mark as rest day"}
+        </button>
+      </div>
 
       {data.day.isRestDay ? (
-        <p className="text-sm text-text-muted">Rest day — no exercises scheduled.</p>
+        <p className="text-sm text-text-muted">
+          Rest day — no exercises scheduled. Tap "Make it an active day" above if you want an optional session here (e.g. a light
+          Sunday task) instead of full rest.
+        </p>
       ) : (
         <div className="flex flex-col gap-3">
           <Button size="lg" fullWidth disabled={starting} onClick={handleStart}>
@@ -67,13 +112,22 @@ export default function PlanDayPage({ params }: { params: Promise<{ dayId: strin
             <Card key={de.id}>
               <div className="mb-3 flex items-center justify-between">
                 <div className="font-semibold">{exercise.name}</div>
-                <button
-                  onClick={() => setSwapFor({ de, exercise })}
-                  className="flex h-8 w-8 items-center justify-center rounded-full bg-surface-2 border border-border active:brightness-90"
-                  aria-label="Change exercise"
-                >
-                  <ArrowRightLeft size={14} />
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setSwapFor({ de, exercise })}
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-surface-2 border border-border active:brightness-90"
+                    aria-label="Change exercise"
+                  >
+                    <ArrowRightLeft size={14} />
+                  </button>
+                  <button
+                    onClick={() => handleRemove(de.id)}
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-surface-2 border border-border text-danger active:brightness-90"
+                    aria-label="Remove exercise"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
               </div>
               <div className="flex flex-col gap-2">
                 <div>
@@ -111,6 +165,11 @@ export default function PlanDayPage({ params }: { params: Promise<{ dayId: strin
               </div>
             </Card>
           ))}
+
+          <Button variant="secondary" fullWidth onClick={() => setAddOpen(true)}>
+            <Plus size={16} />
+            Add Exercise
+          </Button>
         </div>
       )}
 
@@ -124,6 +183,15 @@ export default function PlanDayPage({ params }: { params: Promise<{ dayId: strin
           }}
         />
       )}
+
+      <AddExerciseSheet
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        onSelect={async (exerciseId) => {
+          await addWorkoutDayExercise(dayId, exerciseId);
+          setAddOpen(false);
+        }}
+      />
     </div>
   );
 }
@@ -155,6 +223,43 @@ function SwapDefaultSheet({
               {ex.isCompound ? "Compound" : "Isolation"} · {ex.equipment.join(", ")}
             </div>
           </button>
+        ))}
+      </div>
+    </BottomSheet>
+  );
+}
+
+function AddExerciseSheet({ open, onClose, onSelect }: { open: boolean; onClose: () => void; onSelect: (exerciseId: string) => void }) {
+  const all = useLiveQuery(() => (open ? getAllExercises() : undefined), [open]);
+
+  const grouped = new Map<MuscleGroupKey, Exercise[]>();
+  for (const ex of all ?? []) {
+    const arr = grouped.get(ex.primaryMuscle) ?? [];
+    arr.push(ex);
+    grouped.set(ex.primaryMuscle, arr);
+  }
+
+  return (
+    <BottomSheet open={open} onClose={onClose} title="Add Exercise">
+      <div className="space-y-4 pb-4">
+        {[...grouped.entries()].map(([muscle, exercises]) => (
+          <div key={muscle}>
+            <div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-text-muted">{MUSCLE_LABELS[muscle]}</div>
+            <div className="space-y-2">
+              {exercises.map((ex) => (
+                <button
+                  key={ex.id}
+                  onClick={() => onSelect(ex.id)}
+                  className="w-full rounded-xl border border-border bg-surface-2 px-4 py-3 text-left active:brightness-90"
+                >
+                  <div className="font-medium">{ex.name}</div>
+                  <div className="text-xs text-text-muted">
+                    {ex.isCompound ? "Compound" : "Isolation"} · {ex.repRangeMin}-{ex.repRangeMax} {ex.repUnit}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
         ))}
       </div>
     </BottomSheet>
