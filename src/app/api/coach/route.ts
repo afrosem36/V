@@ -11,11 +11,20 @@ interface FeedbackExercise {
   sets: { weight: number; reps: number; rir: number | null }[];
 }
 
+interface RecentSessionInput {
+  date: string;
+  label: string;
+  primaryMuscles: string[];
+  totalVolume: number;
+  durationMin: number;
+}
+
 type CoachRequest =
   | { type: "feedback"; workoutLabel: string; exercises: FeedbackExercise[] }
   | { type: "explain"; exerciseName: string; primaryMuscle: string; equipment: string[] }
   | { type: "adjust"; exerciseName: string; primaryMuscle: string; availableEquipment: string[]; discomfortNote: string }
-  | { type: "notes"; rawNote: string; exerciseNames: string[] };
+  | { type: "notes"; rawNote: string; exerciseNames: string[] }
+  | { type: "nutrition"; recentSessions: RecentSessionInput[] };
 
 const COMMON_SYSTEM =
   "You are a terse, practical strength-training coach embedded in a gym-logging app for someone rebuilding a V-shaped physique after a 9-10 month break. " +
@@ -74,6 +83,24 @@ function buildMessages(body: CoachRequest): { messages: GroqMessage[]; maxTokens
           {
             role: "user",
             content: `Condense this training note into one or two tight sentences suitable for a workout log, covering: ${body.exerciseNames.join(", ")}. Don't invent details. Note: "${body.rawNote}"`,
+          },
+        ],
+      };
+    }
+    case "nutrition": {
+      const lines = body.recentSessions
+        .map((s) => `- ${s.date}: ${s.label} (muscles: ${s.primaryMuscles.join(", ") || "unspecified"}, volume ${s.totalVolume}kg, ${s.durationMin} min)`)
+        .join("\n");
+      return {
+        maxTokens: 200,
+        messages: [
+          { role: "system", content: COMMON_SYSTEM },
+          {
+            role: "user",
+            content:
+              `Based on this recent training (most recent first), suggest 3-4 practical whole-food recovery meal/snack ideas ` +
+              `(protein sources, carbs to replenish glycogen, hydration) for the next few hours. This is general recovery guidance, ` +
+              `not a diet plan or medical/nutrition prescription — say so briefly. No specific calorie or macro numbers, no supplements. Keep it under 100 words.\n\n${lines}`,
           },
         ],
       };

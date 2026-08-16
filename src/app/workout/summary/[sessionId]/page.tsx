@@ -3,7 +3,7 @@
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { useLiveQuery } from "dexie-react-hooks";
-import { PartyPopper, Sparkles, NotebookPen } from "lucide-react";
+import { PartyPopper, Sparkles, NotebookPen, Apple } from "lucide-react";
 import { Card, CardLabel } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { CompletedSetRow } from "@/components/workout/SetRow";
@@ -11,6 +11,7 @@ import { getSession, getSessionSets, getPreviousCompletedSessionForDay, updateSe
 import { getExercisesByIds } from "@/lib/db/repo/exercises";
 import { getPRsForSession } from "@/lib/db/repo/records";
 import { getLatestBodyWeight } from "@/lib/db/repo/body";
+import { getRecentSessionsSummary } from "@/lib/db/repo/analytics";
 import { totalLoadForSet } from "@/lib/engine/weight-math";
 import { estimateCaloriesBurned } from "@/lib/engine/body-metrics";
 import { formatDuration, formatPR } from "@/lib/utils/format";
@@ -51,9 +52,10 @@ export default function WorkoutSummaryPage({ params }: { params: Promise<{ sessi
   }, [sessionId]);
 
   const [aiFeedback, setAiFeedback] = useState<string | null | undefined>(undefined);
+  const [nutritionTip, setNutritionTip] = useState<string | null | undefined>(undefined);
   const [noteText, setNoteText] = useState("");
   const [noteSeeded, setNoteSeeded] = useState(false);
-  const [savingNote, setSavingNote] = useState(false);
+  const [saveState, setSaveState] = useState<"idle" | "pending" | "saved">("idle");
   const [summarizing, setSummarizing] = useState(false);
 
   useEffect(() => {
@@ -68,10 +70,31 @@ export default function WorkoutSummaryPage({ params }: { params: Promise<{ sessi
     askCoach({ type: "feedback", workoutLabel: data.session.label, exercises }).then(setAiFeedback);
   }, [data, aiFeedback]);
 
+  // One Groq call per finished workout, based on the last few days of training — never repeated on re-render.
+  useEffect(() => {
+    if (!data || nutritionTip !== undefined) return;
+    getRecentSessionsSummary(3).then((recentSessions) => {
+      askCoach({ type: "nutrition", recentSessions }).then(setNutritionTip);
+    });
+  }, [data, nutritionTip]);
+
   if (data && !noteSeeded) {
     setNoteText(data.session.notes ?? "");
     setNoteSeeded(true);
   }
+
+  // Auto-save shortly after typing stops, so a note is never sitting unsaved waiting for a blur
+  // event that might not fire (e.g. navigating away by tapping a link rather than tabbing out).
+  useEffect(() => {
+    if (!noteSeeded) return;
+    setSaveState("pending");
+    const timeout = setTimeout(async () => {
+      await updateSessionNotes(sessionId, noteText);
+      setSaveState("saved");
+    }, 700);
+    return () => clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [noteText]);
 
   if (!data) {
     return <div className="p-5 pt-[calc(1.5rem+var(--safe-top))] text-sm text-text-muted">Loading…</div>;
@@ -80,15 +103,6 @@ export default function WorkoutSummaryPage({ params }: { params: Promise<{ sessi
   const { session, byExercise, prs, totalVolume, previousVolume, durationMin, estimatedCalories, unit } = data;
   const totalSets = byExercise.reduce((sum, e) => sum + e.sets.length, 0);
   const volumeDeltaPct = previousVolume && previousVolume > 0 ? Math.round(((totalVolume - previousVolume) / previousVolume) * 100) : null;
-
-  async function saveNote() {
-    setSavingNote(true);
-    try {
-      await updateSessionNotes(session.id, noteText);
-    } finally {
-      setSavingNote(false);
-    }
-  }
 
   async function summarizeNote() {
     if (!noteText.trim()) return;
@@ -172,6 +186,16 @@ export default function WorkoutSummaryPage({ params }: { params: Promise<{ sessi
         </Card>
       )}
 
+      {nutritionTip && (
+        <Card>
+          <div className="flex items-center gap-1.5 text-text-muted">
+            <Apple size={14} />
+            <CardLabel>Recovery Food Ideas</CardLabel>
+          </div>
+          <p className="mt-1.5 text-sm leading-relaxed">{nutritionTip}</p>
+        </Card>
+      )}
+
       <div className="flex flex-col gap-3">
         {byExercise.map(({ exercise, sets }) => (
           <Card key={exercise.id}>
@@ -193,7 +217,7 @@ export default function WorkoutSummaryPage({ params }: { params: Promise<{ sessi
         <textarea
           value={noteText}
           onChange={(e) => setNoteText(e.target.value)}
-          onBlur={saveNote}
+          onBlur={() => updateSessionNotes(sessionId, noteText)}
           placeholder="e.g. bench felt heavy but incline felt easy…"
           rows={3}
           className="mt-2 w-full resize-none rounded-lg bg-surface-2 p-3 text-sm placeholder:text-text-faint"
@@ -208,7 +232,9 @@ export default function WorkoutSummaryPage({ params }: { params: Promise<{ sessi
             {summarizing ? "Summarizing…" : "Tighten with AI"}
           </button>
         </div>
-        {savingNote && <div className="mt-1 text-xs text-text-faint">Saving…</div>}
+        {saveState !== "idle" && (
+          <div className="mt-1 text-xs text-text-faint">{saveState === "pending" ? "Saving…" : "Saved"}</div>
+        )}
       </Card>
 
       <Link href="/">

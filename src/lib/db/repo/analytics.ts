@@ -1,5 +1,6 @@
 import { db } from "@/lib/db/db";
-import { getCompletedSessions } from "@/lib/db/repo/workouts";
+import { getCompletedSessions, getSessionSets } from "@/lib/db/repo/workouts";
+import { getExercisesByIds } from "@/lib/db/repo/exercises";
 import { totalLoadForSet, displayWeightForSet } from "@/lib/engine/weight-math";
 import { estimateCaloriesBurned } from "@/lib/engine/body-metrics";
 import { dateStr } from "@/lib/utils/date";
@@ -80,6 +81,34 @@ export async function getWorkoutCounts(): Promise<{ thisWeek: number; thisMonth:
     if (d >= monthStart) thisMonth++;
   }
   return { thisWeek, thisMonth };
+}
+
+export interface RecentSessionSummary {
+  date: string;
+  label: string;
+  primaryMuscles: string[];
+  totalVolume: number;
+  durationMin: number;
+}
+
+/** Last N completed workouts (most recent first) — the training context sent to the AI for recovery-nutrition suggestions. */
+export async function getRecentSessionsSummary(limit = 3): Promise<RecentSessionSummary[]> {
+  const sessions = await getCompletedSessions(limit);
+  const results: RecentSessionSummary[] = [];
+
+  for (const session of sessions) {
+    const sets = await getSessionSets(session.id);
+    const exerciseIds = [...new Set(sets.map((s) => s.exerciseId))];
+    const exercises = await getExercisesByIds(exerciseIds);
+    const primaryMuscles = [...new Set(exercises.map((e) => e.primaryMuscle))];
+    const totalVolume = Math.round(sets.reduce((sum, s) => sum + totalLoadForSet(s) * s.reps, 0));
+    const durationMin =
+      session.completedAt != null ? Math.round((new Date(session.completedAt).getTime() - new Date(session.startedAt).getTime()) / 60000) : 0;
+
+    results.push({ date: session.startedAt.slice(0, 10), label: session.label, primaryMuscles, totalVolume, durationMin });
+  }
+
+  return results;
 }
 
 export interface WeeklyGymStats {

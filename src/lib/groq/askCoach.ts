@@ -8,11 +8,20 @@ export interface FeedbackExerciseInput {
   sets: { weight: number; reps: number; rir: number | null }[];
 }
 
+export interface RecentSessionInput {
+  date: string;
+  label: string;
+  primaryMuscles: string[];
+  totalVolume: number;
+  durationMin: number;
+}
+
 type CoachRequestBody =
   | { type: "feedback"; workoutLabel: string; exercises: FeedbackExerciseInput[] }
   | { type: "explain"; exerciseName: string; primaryMuscle: string; equipment: string[] }
   | { type: "adjust"; exerciseName: string; primaryMuscle: string; availableEquipment: string[]; discomfortNote: string }
-  | { type: "notes"; rawNote: string; exerciseNames: string[] };
+  | { type: "notes"; rawNote: string; exerciseNames: string[] }
+  | { type: "nutrition"; recentSessions: RecentSessionInput[] };
 
 /**
  * Always resolves — returns null on any failure (offline, Groq down, timeout, missing key).
