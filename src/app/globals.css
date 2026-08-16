@@ -1,0 +1,64 @@
+@import "tailwindcss";
+
+:root {
+  --color-bg: #0a0a0b;
+  --color-surface: #151517;
+  --color-surface-2: #1e1e21;
+  --color-border: #2a2a2e;
+  --color-text: #f5f5f6;
+  --color-text-muted: #94949c;
+  --color-text-faint: #626269;
+  --color-accent: #f0a825;
+  --color-accent-foreground: #1a1200;
+  --color-success: #34d399;
+  --color-danger: #f0554a;
+
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+@theme inline {
+  --color-bg: var(--color-bg);
+  --color-surface: var(--color-surface);
+  --color-surface-2: var(--color-surface-2);
+  --color-border: var(--color-border);
+  --color-text: var(--color-text);
+  --color-text-muted: var(--color-text-muted);
+  --color-text-faint: var(--color-text-faint);
+  --color-accent: var(--color-accent);
+  --color-accent-foreground: var(--color-accent-foreground);
+  --color-success: var(--color-success);
+  --color-danger: var(--color-danger);
+  --font-sans: var(--font-inter);
+}
+
+html {
+  height: 100%;
+  background: var(--color-bg);
+}
+
+body {
+  min-height: 100%;
+  background: var(--color-bg);
+  color: var(--color-text);
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+
+* {
+  -webkit-font-smoothing: antialiased;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+::selection {
+  background: var(--color-accent);
+  color: var(--color-accent-foreground);
+}

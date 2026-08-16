@@ -1,0 +1,248 @@
+// Core domain model. Every persisted entity gets a uuid id + timestamps.
+
+export type Id = string;
+
+export type MuscleGroupKey =
+  | "lateral_delts"
+  | "lats"
+  | "rear_delts"
+  | "upper_chest"
+  | "chest"
+  | "biceps"
+  | "triceps"
+  | "forearms"
+  | "quads"
+  | "hamstrings"
+  | "glutes"
+  | "calves"
+  | "core"
+  | "front_delts"
+  | "traps"
+  | "full_body";
+
+export interface MuscleGroup {
+  id: Id;
+  key: MuscleGroupKey;
+  label: string;
+  /** Lower number = higher priority for the V-shape goal (1 = highest). */
+  vShapePriority: number;
+}
+
+export type EquipmentKey =
+  | "dumbbell"
+  | "barbell"
+  | "adjustable_bench"
+  | "flat_bench"
+  | "incline_bench"
+  | "squat_rack"
+  | "cable_machine"
+  | "lat_pulldown"
+  | "seated_cable_row"
+  | "leg_press"
+  | "leg_extension"
+  | "leg_curl"
+  | "chest_press_machine"
+  | "pec_deck"
+  | "shoulder_press_machine"
+  | "smith_machine"
+  | "pull_up_bar"
+  | "ez_curl_bar"
+  | "treadmill"
+  | "exercise_bike"
+  | "bodyweight";
+
+export interface Equipment {
+  id: Id;
+  key: EquipmentKey;
+  label: string;
+}
+
+export type MovementType = "push" | "pull" | "squat" | "hinge" | "carry" | "isolation" | "cardio";
+export type ExerciseLevel = "beginner" | "intermediate" | "advanced";
+export type LoadType = "dumbbell_each" | "barbell" | "machine_stack" | "bodyweight" | "cardio";
+
+export interface Exercise {
+  id: Id;
+  name: string;
+  primaryMuscle: MuscleGroupKey;
+  secondaryMuscles: MuscleGroupKey[];
+  equipment: EquipmentKey[];
+  movementType: MovementType;
+  isCompound: boolean;
+  level: ExerciseLevel;
+  loadType: LoadType;
+  repUnit: "reps" | "seconds" | "minutes";
+  repRangeMin: number;
+  repRangeMax: number;
+  recommendedSets: number;
+  restSeconds: number;
+  instructions: string;
+  formCues: string[];
+  commonMistakes: string[];
+  /** Ordered list of exercise ids to substitute, best first, when equipment is missing. */
+  alternativeExerciseIds: Id[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UserEquipment {
+  id: Id;
+  equipmentKey: EquipmentKey;
+  available: boolean;
+  updatedAt: string;
+}
+
+/** Smallest weight step the user can actually load, per load type. */
+export interface EquipmentIncrements {
+  dumbbellStepKg: number;
+  /** Smallest single plate available per side, e.g. 1.25kg. */
+  plateStepKg: number;
+  barWeightKg: number;
+  machineStepKg: number;
+}
+
+export interface WorkoutPlan {
+  id: Id;
+  name: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type DayOfWeek = 0 | 1 | 2 | 3 | 4 | 5 | 6; // 0 = Sunday
+
+export interface WorkoutDay {
+  id: Id;
+  planId: Id;
+  dayOfWeek: DayOfWeek;
+  label: string; // e.g. "Chest + Triceps"
+  isRestDay: boolean;
+  order: number;
+}
+
+export type ExercisePriority = 1 | 2 | 3 | 4 | 5; // 1 = never skip, 5 = optional/first cut
+
+export interface WorkoutDayExercise {
+  id: Id;
+  workoutDayId: Id;
+  exerciseId: Id;
+  order: number;
+  priority: ExercisePriority;
+  targetSets: number;
+  repRangeMin: number;
+  repRangeMax: number;
+  restSeconds: number;
+}
+
+export type SessionStatus = "active" | "completed" | "abandoned";
+
+export interface WorkoutSession {
+  id: Id;
+  workoutDayId: Id | null;
+  label: string;
+  status: SessionStatus;
+  startedAt: string;
+  completedAt: string | null;
+  /** short workout mode target, minutes */
+  timeBudgetMinutes: number | null;
+  notes: string | null;
+}
+
+export type WeightEntryMode = "dumbbell_each" | "barbell_total" | "machine" | "bodyweight" | "assisted";
+
+export interface ExerciseSet {
+  id: Id;
+  sessionId: Id;
+  exerciseId: Id;
+  setNumber: number;
+  isWarmup: boolean;
+  weightEntryMode: WeightEntryMode;
+  /** Per-hand for dumbbells, total for machine/bodyweight. */
+  weightKg: number;
+  barWeightKg: number | null;
+  platePerSideKg: number | null;
+  assistKg: number | null;
+  reps: number;
+  rir: number | null;
+  painFlag: boolean;
+  completedAt: string;
+}
+
+export type PRType = "heaviest_weight" | "best_reps_at_weight" | "est_1rm" | "volume";
+
+export interface PersonalRecord {
+  id: Id;
+  exerciseId: Id;
+  type: PRType;
+  value: number;
+  weightKg: number | null;
+  reps: number | null;
+  achievedAt: string;
+  sessionId: Id;
+  /** True when this was set on the exercise's first-ever session — a baseline, not an earned record. Not celebrated in the UI. */
+  isBaseline?: boolean;
+}
+
+export type WeightUnit = "kg" | "lb";
+
+export interface BodyWeight {
+  id: Id;
+  date: string; // yyyy-mm-dd
+  weightKg: number;
+  notes: string | null;
+  createdAt: string;
+}
+
+export interface BodyMeasurement {
+  id: Id;
+  date: string;
+  waistCm: number | null;
+  chestCm: number | null;
+  armsCm: number | null;
+  thighsCm: number | null;
+  createdAt: string;
+}
+
+export interface DailySteps {
+  id: Id;
+  date: string; // yyyy-mm-dd, unique
+  steps: number;
+  source: "manual" | "healthkit";
+  updatedAt: string;
+}
+
+export type PhotoAngle = "front" | "side" | "back";
+
+export interface ProgressPhoto {
+  id: Id;
+  date: string;
+  angle: PhotoAngle;
+  blob: Blob;
+  createdAt: string;
+}
+
+export interface ExerciseAlternative {
+  id: Id;
+  exerciseId: Id;
+  alternativeExerciseId: Id;
+  rank: number;
+}
+
+export type TrainingPhase = "calibration" | "steady_state";
+
+export interface AppSettings {
+  id: Id; // singleton, fixed id "settings"
+  units: WeightUnit;
+  stepGoal: number;
+  defaultRestCompoundSec: number;
+  defaultRestIsolationSec: number;
+  defaultRestAbsSec: number;
+  equipmentIncrements: EquipmentIncrements;
+  trainingPhase: TrainingPhase;
+  phaseStartedAt: string;
+  firstWorkoutCompletedAt: string | null;
+  theme: "dark";
+  lastActiveWorkoutDate: string | null;
+  /** Undefined/1 = original seed. Bumped whenever exercises/program reference data is corrected post-launch. */
+  libraryVersion?: number;
+}
